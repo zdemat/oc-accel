@@ -189,7 +189,7 @@ set_property -dict [list                               \
 #  CONFIG.USER_MEMORY_DISPLAY {2048}  => set the value to 512 by MC used (2048 = 4 MC used)
 #  CONFIG.USER_MC_ENABLE_00 {TRUE}    => enable/disable the MC
 set_property -dict [list \
-  CONFIG.USER_MEMORY_DISPLAY {512}  \
+  CONFIG.USER_MEMORY_DISPLAY {3072}  \
   CONFIG.USER_CLK_SEL_LIST0 {AXI_00_ACLK}  \
   CONFIG.USER_MC_ENABLE_00 {TRUE}  \
   CONFIG.USER_MC_ENABLE_01 {TRUE}  \
