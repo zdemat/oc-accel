@@ -21,9 +21,10 @@
 
 #include "hw_action_rx100G.h"
 
-packed_pedeG0_t packed_pedeG0[NMODULES * 512 * 1024 / 32];
+packed_pedeG0_t packed_pedeG0[NPIXEL / 32];
+ap_uint<32> pixel_mask[NPIXEL / 32];
 
-void copy_data(snap_membus_t *din_gmem, snap_HBMbus_t *d_hbm0, snap_HBMbus_t *d_hbm1, size_t in_addr) {
+void copy_data(rx100g_mem_t *din_gmem, rx100g_hbm_t *d_hbm0, rx100g_hbm_t *d_hbm1, size_t in_addr) {
 	for (size_t i = 0; i < NMODULES * 512 * 1024 / 32; i ++) {
 		ap_uint<512> tmp = din_gmem[in_addr+i];
 		d_hbm0[i] = tmp(255,0);
@@ -34,19 +35,19 @@ void copy_data(snap_membus_t *din_gmem, snap_HBMbus_t *d_hbm0, snap_HBMbus_t *d_
 	}
 }
 
-void load_data_to_hbm(snap_membus_t *din_gmem, uint64_t in_gain_pedestal_addr,
-		snap_HBMbus_t *d_hbm_p0, snap_HBMbus_t *d_hbm_p1,
-		snap_HBMbus_t *d_hbm_p2, snap_HBMbus_t *d_hbm_p3,
-		snap_HBMbus_t *d_hbm_p4, snap_HBMbus_t *d_hbm_p5,
-		snap_HBMbus_t *d_hbm_p6, snap_HBMbus_t *d_hbm_p7,
-		snap_HBMbus_t *d_hbm_p8, snap_HBMbus_t *d_hbm_p9,
-		snap_HBMbus_t *d_hbm_p10, snap_HBMbus_t *d_hbm_p11) {
+void load_data_to_hbm(rx100g_mem_t *din_gmem, uint64_t in_gain_pedestal_addr,
+		rx100g_hbm_t *d_hbm_p0, rx100g_hbm_t *d_hbm_p1,
+		rx100g_hbm_t *d_hbm_p2, rx100g_hbm_t *d_hbm_p3,
+		rx100g_hbm_t *d_hbm_p4, rx100g_hbm_t *d_hbm_p5,
+		rx100g_hbm_t *d_hbm_p6, rx100g_hbm_t *d_hbm_p7,
+		rx100g_hbm_t *d_hbm_p8, rx100g_hbm_t *d_hbm_p9,
+		rx100g_hbm_t *d_hbm_p10, rx100g_hbm_t *d_hbm_p11) {
 	size_t offset = in_gain_pedestal_addr;
 	for (size_t i = 0; i < NPIXEL * 2 / 64; i ++) {
 #pragma HLS PIPELINE
-ap_uint<512> tmp = din_gmem[offset+i];
-d_hbm_p0[i] = tmp(255,0);
-d_hbm_p1[i] = tmp(511,256);
+		ap_uint<512> tmp = din_gmem[offset+i];
+		d_hbm_p0[i] = tmp(255,0);
+		d_hbm_p1[i] = tmp(511,256);
 	}
 	offset += NPIXEL * 2 / 64;
 	for (size_t i = 0; i < NPIXEL * 2 / 64; i ++) {
@@ -86,7 +87,7 @@ d_hbm_p1[i] = tmp(511,256);
 
 #define BURST_SIZE 4
 
-void save_pedestal(snap_membus_t *dout_gmem, size_t offset) {
+void save_pedestal(rx100g_mem_t *dout_gmem, size_t offset) {
 	for (size_t i = 0; i < NPIXEL * 2 / 64 / BURST_SIZE; i ++) {
 #pragma HLS PIPELINE II = 4
 
@@ -99,7 +100,7 @@ void save_pedestal(snap_membus_t *dout_gmem, size_t offset) {
 	}
 }
 
-void load_pedestal(snap_membus_t *din_gmem, size_t offset) {
+void load_pedestal(rx100g_mem_t *din_gmem, size_t offset) {
 	for (size_t i = 0; i < NPIXEL * 2 / 64 / BURST_SIZE; i ++) {
 #pragma HLS PIPELINE II = 4
 		packed_pedeG0_t tmp[BURST_SIZE];
@@ -116,24 +117,46 @@ void load_pedestal(snap_membus_t *din_gmem, size_t offset) {
 	}
 }
 
+void clear_pixel_mask() {
+	for (size_t i = 0; i < NPIXEL / 32; i ++)
+#pragma HLS unroll factor=4
+		pixel_mask[i] = 0;
+
+}
+
+void update_pixel_mask(rx100g_mem_t *din_gmem, size_t offset, size_t bit) {
+	for (size_t i = 0; i < NPIXEL / 32 / BURST_SIZE; i ++) {
+#pragma HLS pipeline
+		ap_uint<512> tmp[BURST_SIZE];
+		memcpy(tmp, din_gmem+offset+i*BURST_SIZE, 64*BURST_SIZE);
+		for (int k = 0; k < BURST_SIZE; k++)
+			for (int j = 0; j < 32; j++) {
+				if (pixel_mask[i*BURST_SIZE+k][j] == 1) tmp[k][j*16+bit] = 1;
+				else tmp[k][j*16+bit] = 0;
+			}
+		memcpy(din_gmem+offset+i*BURST_SIZE, tmp, 64*BURST_SIZE);
+	}
+}
+
 // Taken from HBM_memcopy action
 //convert buffer 256b to 512b
-static void HBMbus_to_membus(snap_HBMbus_t *data_in, snap_membus_t *data_out,
-                             uint64_t size_in_words_512)
+static void HBMbus_to_membus(rx100g_hbm_t *data_in, rx100g_mem_t *data_out,
+		uint64_t size_in_words_512)
 {
 #pragma HLS INLINE off
-        static snap_membus_t data_entry = 0;
+	static rx100g_mem_t data_entry = 0;
 
-        hbm2mem_loop:
-        for (int k=0; k<size_in_words_512; k++) {
+	hbm2mem_loop:
+	for (int k=0; k<size_in_words_512; k++) {
 #pragma HLS PIPELINE II=2
-            for (int j = 0; j < 2; j++) {
-                data_entry |= ((snap_membus_t)(data_in[k*2+j])) << j*MEMDW/2;
-            }
-            data_out[k] = data_entry;
-            data_entry = 0;
-        }
- }
+		for (int j = 0; j < 2; j++) {
+			data_entry |= ((rx100g_mem_t)(data_in[k*2+j])) << j*MEMDW/2;
+		}
+		data_out[k] = data_entry;
+		data_entry = 0;
+	}
+}
+
 
 void make_packet(AXI_STREAM &din_eth, uint64_t frame_number, uint32_t eth_packet, uint16_t module, uint16_t *data) {
 	char buff[130*64];
@@ -149,7 +172,7 @@ void make_packet(AXI_STREAM &din_eth, uint64_t frame_number, uint32_t eth_packet
 	packet->dest_mac[4] = 0xEE;
 	packet->dest_mac[5] = 0xF1;
 	packet->ipv4_header_h = 0x45; // Big endian in IP header!
-    packet->ipv4_header_total_length = 0x4C20; // Big endian in IP header!
+	packet->ipv4_header_total_length = 0x4C20; // Big endian in IP header!
 	packet->ipv4_header_dest_ip = 0x0532010A; // Big endian in IP header!
 
 	if (eth_packet > 63)
@@ -183,15 +206,16 @@ void make_packet(AXI_STREAM &din_eth, uint64_t frame_number, uint32_t eth_packet
 
 void collect_data(AXI_STREAM &din_eth,
 		eth_settings_t eth_settings,
-		snap_membus_t *dout_gmem,
+		rx100g_mem_t *dout_gmem,
 		size_t out_frame_buffer_addr, size_t out_frame_status_addr,
-		snap_HBMbus_t *d_hbm_p0, snap_HBMbus_t *d_hbm_p1,
-		snap_HBMbus_t *d_hbm_p2, snap_HBMbus_t *d_hbm_p3,
-		snap_HBMbus_t *d_hbm_p4, snap_HBMbus_t *d_hbm_p5,
-		snap_HBMbus_t *d_hbm_p6, snap_HBMbus_t *d_hbm_p7,
-		snap_HBMbus_t *d_hbm_p8, snap_HBMbus_t *d_hbm_p9,
-		snap_HBMbus_t *d_hbm_p10, snap_HBMbus_t *d_hbm_p11,
-		conversion_settings_t conversion_settings, ap_uint<2> select_output) {
+		rx100g_hbm_t *d_hbm_p0, rx100g_hbm_t *d_hbm_p1,
+		rx100g_hbm_t *d_hbm_p2, rx100g_hbm_t *d_hbm_p3,
+		rx100g_hbm_t *d_hbm_p4, rx100g_hbm_t *d_hbm_p5,
+		rx100g_hbm_t *d_hbm_p6, rx100g_hbm_t *d_hbm_p7,
+		rx100g_hbm_t *d_hbm_p8, rx100g_hbm_t *d_hbm_p9,
+		rx100g_hbm_t *d_hbm_p10, rx100g_hbm_t *d_hbm_p11,
+		conversion_settings_t conversion_settings, ap_uint<2> select_output,
+		uint8_t expected_triggers, ap_uint<24> frames_per_trigger) {
 
 #pragma HLS DATAFLOW
 	DATA_STREAM raw;
@@ -200,24 +224,30 @@ void collect_data(AXI_STREAM &din_eth,
 	DATA_STREAM after_correctG1;
 	DATA_STREAM after_correctG2;
 	DATA_STREAM converted;
+	DATA_STREAM filtered;
 
 #pragma HLS STREAM variable=raw
 #pragma HLS RESOURCE variable=raw CORE=FIFO_LUTRAM
 #pragma HLS STREAM variable=after_pedeG0 depth=512
-//#pragma HLS RESOURCE variable=after_pedeG0 CORE=FIFO_LUTRAM
-//#pragma HLS STREAM variable=after_gainG0 depth=4
-//#pragma HLS RESOURCE variable=after_gainG0 CORE=FIFO_LUTRAM
+	//#pragma HLS RESOURCE variable=after_pedeG0 CORE=FIFO_LUTRAM
+	//#pragma HLS STREAM variable=after_gainG0 depth=4
+	//#pragma HLS RESOURCE variable=after_gainG0 CORE=FIFO_LUTRAM
 
-//#pragma HLS RESOURCE variable=after_correctG1 CORE=FIFO_BRAM
-//#pragma HLS STREAM variable=after_correctG2 depth=4
-//#pragma HLS RESOURCE variable=after_correctG2 CORE=FIFO_LUTRAM
+	//#pragma HLS RESOURCE variable=after_correctG1 CORE=FIFO_BRAM
+	//#pragma HLS STREAM variable=after_correctG2 depth=4
+	//#pragma HLS RESOURCE variable=after_correctG2 CORE=FIFO_LUTRAM
+#pragma HLS STREAM variable=filtered
+#pragma HLS RESOURCE variable=filtered CORE=FIFO_LUTRAM
+
 #pragma HLS STREAM variable=converted depth=512
-//#pragma HLS RESOURCE variable=converted CORE=FIFO_BRAM
+	//#pragma HLS RESOURCE variable=converted CORE=FIFO_BRAM
 
 	// 1. Read packet from 100G Ethernet
 	read_eth_packet(din_eth, raw, eth_settings, d_hbm_p10);
+
 	// 2. Update pedestal (for any gain) and apply G0 pedestal
 	pedestalG0(raw, after_pedeG0, conversion_settings);
+
 	// 3. Apply gain correction to G0 pixels
 	apply_gain_correction(after_pedeG0, converted,
 			d_hbm_p0, d_hbm_p1,
@@ -225,29 +255,26 @@ void collect_data(AXI_STREAM &din_eth,
 			d_hbm_p4, d_hbm_p5,
 			d_hbm_p6, d_hbm_p7,
 			d_hbm_p8, d_hbm_p9,
-		    select_output);
-	//gainG0(after_pedeG0, after_gainG0, d_hbm_p0, d_hbm_p1);
-	// 4. Apply gain and pedestal corrections for G1 pixels
-	//correctG1(after_gainG0, after_correctG1, d_hbm_p2, d_hbm_p3, d_hbm_p6, d_hbm_p7);
-	// 5. Apply gain and pedestal corrections for G2 pixels
-	//correctG2(after_correctG1, after_correctG2, d_hbm_p4, d_hbm_p5, d_hbm_p8, d_hbm_p9);
-	// 6. Replace raw data with converted data in the stream
-	//merge_converted_stream(after_correctG2, converted, select_output);
-	// 7. Write raw or converted data to host memory
-	write_data(converted, dout_gmem, out_frame_buffer_addr, out_frame_status_addr, d_hbm_p11);
+			select_output);
+
+	// 4. Filter frames with trigger signal information
+	check_for_trigger(converted, filtered, expected_triggers, frames_per_trigger);
+
+	// 5. Write raw or converted data to host memory
+	write_data(filtered, dout_gmem, out_frame_buffer_addr, out_frame_status_addr, d_hbm_p11);
 }
 
 //----------------------------------------------------------------------
 //--- MAIN PROGRAM -----------------------------------------------------
 //----------------------------------------------------------------------
-static int process_action(snap_membus_t *din_gmem,
-		snap_membus_t *dout_gmem,
-		snap_HBMbus_t *d_hbm_p0, snap_HBMbus_t *d_hbm_p1,
-		snap_HBMbus_t *d_hbm_p2, snap_HBMbus_t *d_hbm_p3,
-		snap_HBMbus_t *d_hbm_p4, snap_HBMbus_t *d_hbm_p5,
-		snap_HBMbus_t *d_hbm_p6, snap_HBMbus_t *d_hbm_p7,
-		snap_HBMbus_t *d_hbm_p8, snap_HBMbus_t *d_hbm_p9,
-		snap_HBMbus_t *d_hbm_p10, snap_HBMbus_t *d_hbm_p11,
+static int process_action(rx100g_mem_t *din_gmem,
+		rx100g_mem_t *dout_gmem,
+		rx100g_hbm_t *d_hbm_p0, rx100g_hbm_t *d_hbm_p1,
+		rx100g_hbm_t *d_hbm_p2, rx100g_hbm_t *d_hbm_p3,
+		rx100g_hbm_t *d_hbm_p4, rx100g_hbm_t *d_hbm_p5,
+		rx100g_hbm_t *d_hbm_p6, rx100g_hbm_t *d_hbm_p7,
+		rx100g_hbm_t *d_hbm_p8, rx100g_hbm_t *d_hbm_p9,
+		rx100g_hbm_t *d_hbm_p10, rx100g_hbm_t *d_hbm_p11,
 		AXI_STREAM &din_eth,
 		AXI_STREAM &dout_eth,
 		action_reg *act_reg)
@@ -269,13 +296,14 @@ static int process_action(snap_membus_t *din_gmem,
 	size_t in_gain_pedestal_addr = act_reg->Data.in_gain_pedestal_data_addr >> ADDR_RIGHT_SHIFT;
 	size_t out_frame_buffer_addr = act_reg->Data.out_frame_buffer_addr >> ADDR_RIGHT_SHIFT;
 	size_t out_frame_status_addr = act_reg->Data.out_frame_status_addr >> ADDR_RIGHT_SHIFT;
-    size_t jf_packet_headers_addr = act_reg->Data.out_jf_packet_headers_addr >> ADDR_RIGHT_SHIFT;
+	size_t jf_packet_headers_addr = act_reg->Data.out_jf_packet_headers_addr >> ADDR_RIGHT_SHIFT;
 
 	eth_settings_t eth_settings;
 	eth_settings.fpga_mac_addr = act_reg->Data.fpga_mac_addr;
 	eth_settings.fpga_ipv4_addr = act_reg->Data.fpga_ipv4_addr;
 	eth_settings.frame_number_to_stop = act_reg->Data.expected_frames;
-	eth_settings.frame_number_to_quit = act_reg->Data.expected_frames + 5;
+	eth_settings.frame_number_to_quit = act_reg->Data.expected_frames + DELAY_FRAMES_STOP_AND_QUIT;
+	eth_settings.first_frame_number = act_reg->Data.first_frame_number;
 
 	conversion_settings_t conversion_settings;
 	conversion_settings.pedestalG0_frames = act_reg->Data.pedestalG0_frames;
@@ -299,7 +327,7 @@ static int process_action(snap_membus_t *din_gmem,
 			d_hbm_p8, d_hbm_p9,
 			d_hbm_p10, d_hbm_p11);
 
-	// Load pedestal estimation into main memory
+	// Load pedestal estimation and pixel_mask into main memory
 	switch (conversion_settings.conversion_mode) {
 	case MODE_PEDEG0:
 	case MODE_CONV:
@@ -313,6 +341,9 @@ static int process_action(snap_membus_t *din_gmem,
 		break;
 	}
 
+	// Set pixel mask to zero
+	clear_pixel_mask();
+
 	// Run data collection
 	collect_data(din_eth, eth_settings, dout_gmem, out_frame_buffer_addr, out_frame_status_addr,
 			d_hbm_p0, d_hbm_p1,
@@ -321,19 +352,24 @@ static int process_action(snap_membus_t *din_gmem,
 			d_hbm_p6, d_hbm_p7,
 			d_hbm_p8, d_hbm_p9,
 			d_hbm_p10, d_hbm_p11,
-			conversion_settings, output_type);
+			conversion_settings, output_type,
+			act_reg->Data.expected_triggers,
+			act_reg->Data.frames_per_trigger);
 
 	// Save calculated pedestal back to memory
 	switch (conversion_settings.conversion_mode) {
 	case MODE_PEDEG0:
 	case MODE_CONV:
 		save_pedestal(dout_gmem, in_gain_pedestal_addr + 5 * NPIXEL * 2L / 64);
+		update_pixel_mask(din_gmem, in_gain_pedestal_addr + 6 * NPIXEL * 2L / 64, 9);
 		break;
 	case MODE_PEDEG1:
 		save_pedestal(dout_gmem, in_gain_pedestal_addr + 3 * NPIXEL * 2L / 64);
+		update_pixel_mask(din_gmem, in_gain_pedestal_addr + 6 * NPIXEL * 2L / 64, 10);
 		break;
 	case MODE_PEDEG2:
 		save_pedestal(dout_gmem, in_gain_pedestal_addr + 4 * NPIXEL * 2L / 64);
+		update_pixel_mask(din_gmem, in_gain_pedestal_addr + 6 * NPIXEL * 2L / 64, 11);
 		break;
 	}
 
@@ -351,19 +387,22 @@ static int process_action(snap_membus_t *din_gmem,
 }
 
 //--- TOP LEVEL MODULE -------------------------------------------------
-//S2OC snap_membus_t and snap_HBMbus_t are defined in actions/include/hls_snap.H
-void hls_action(snap_membus_t *din_gmem, snap_membus_t *dout_gmem,
-		snap_HBMbus_t *d_hbm_p0, snap_HBMbus_t *d_hbm_p1,
-		snap_HBMbus_t *d_hbm_p2, snap_HBMbus_t *d_hbm_p3,
-		snap_HBMbus_t *d_hbm_p4, snap_HBMbus_t *d_hbm_p5,
-		snap_HBMbus_t *d_hbm_p6, snap_HBMbus_t *d_hbm_p7,
-		snap_HBMbus_t *d_hbm_p8, snap_HBMbus_t *d_hbm_p9,
-		snap_HBMbus_t *d_hbm_p10, snap_HBMbus_t *d_hbm_p11,
+void hls_action(rx100g_mem_t *din_gmem, rx100g_mem_t *dout_gmem,
+		rx100g_hbm_t *d_hbm_p0, rx100g_hbm_t *d_hbm_p1,
+		rx100g_hbm_t *d_hbm_p2, rx100g_hbm_t *d_hbm_p3,
+		rx100g_hbm_t *d_hbm_p4, rx100g_hbm_t *d_hbm_p5,
+		rx100g_hbm_t *d_hbm_p6, rx100g_hbm_t *d_hbm_p7,
+		rx100g_hbm_t *d_hbm_p8, rx100g_hbm_t *d_hbm_p9,
+		rx100g_hbm_t *d_hbm_p10, rx100g_hbm_t *d_hbm_p11,
 		AXI_STREAM &din_eth, AXI_STREAM &dout_eth, volatile ap_uint<1> &eth_reset,
+#ifdef OCACCEL
 		action_reg *act_reg)
-/*S2OC		action_RO_config_reg *Action_Config) */
-{
-	// Host Memory AXI Interface - CANNOT BE REMOVED - NO CHANGE BELOW
+#else
+action_reg *act_reg,
+action_RO_config_reg *Action_Config)
+#endif
+		{
+			// Host Memory AXI Interface - CANNOT BE REMOVED - NO CHANGE BELOW
 #pragma HLS INTERFACE m_axi port=din_gmem bundle=host_mem offset=slave depth=512 \
 		max_read_burst_length=64  max_write_burst_length=64 latency=16
 #pragma HLS INTERFACE s_axilite port=din_gmem bundle=ctrl_reg offset=0x030
@@ -372,16 +411,18 @@ void hls_action(snap_membus_t *din_gmem, snap_membus_t *dout_gmem,
 		max_read_burst_length=64  max_write_burst_length=64 latency=16
 #pragma HLS INTERFACE s_axilite port=dout_gmem bundle=ctrl_reg offset=0x040
 
-	/*  // DDR memory Interface - CAN BE COMMENTED IF UNUSED
-	 * #pragma HLS INTERFACE m_axi port=d_ddrmem bundle=card_mem0 offset=slave depth=512 \
-	 *   max_read_burst_length=64  max_write_burst_length=64
-	 * #pragma HLS INTERFACE s_axilite port=d_ddrmem bundle=ctrl_reg offset=0x050
-	 */
-	// Host Memory AXI Lite Master Interface - NO CHANGE BELOW
-/*S2OC
+			/*  // DDR memory Interface - CAN BE COMMENTED IF UNUSED
+			 * #pragma HLS INTERFACE m_axi port=d_ddrmem bundle=card_mem0 offset=slave depth=512 \
+			 *   max_read_burst_length=64  max_write_burst_length=64
+			 * #pragma HLS INTERFACE s_axilite port=d_ddrmem bundle=ctrl_reg offset=0x050
+			 */
+			// Host Memory AXI Lite Master Interface - NO CHANGE BELOW
+
+#ifndef OCACCEL
 #pragma HLS DATA_PACK variable=Action_Config
 #pragma HLS INTERFACE s_axilite port=Action_Config bundle=ctrl_reg offset=0x010
-*/
+#endif
+
 #pragma HLS DATA_PACK variable=act_reg
 #pragma HLS INTERFACE s_axilite port=act_reg bundle=ctrl_reg offset=0x100
 #pragma HLS INTERFACE s_axilite port=return bundle=ctrl_reg
@@ -418,31 +459,40 @@ void hls_action(snap_membus_t *din_gmem, snap_membus_t *dout_gmem,
 #pragma HLS RESOURCE variable=packed_pedeG0 core=RAM_1P_URAM
 #pragma HLS ARRAY_PARTITION variable=packed_pedeG0 cyclic factor=4 dim=1
 
-	/* Required Action Type Detection - NO CHANGE BELOW */
-       //	NOTE: switch generates better vhdl than "if" //
-	// Test used to exit the action if no parameter has been set.
-	// Used for the discovery phase of the cards //
-//S2OC    switch (act_reg->Control.flags) {
-//S2OC    case 0:
-//S2OC    	Action_Config->action_type = RX100G_ACTION_TYPE; //TO BE ADAPTED
-//S2OC    	Action_Config->release_level = RELEASE_LEVEL;
-//S2OC    	act_reg->Control.Retc = 0xe00f;
-//S2OC    	return;
-//S2OC    	break;
-//S2OC    default:
-                {
+#pragma HLS RESOURCE variable=pixel_mask core=RAM_1P_URAM
+#pragma HLS ARRAY_PARTITION variable=pixel_mask cyclic factor=4 dim=1
+
+			/* Required Action Type Detection - NO CHANGE BELOW */
+			//	NOTE: switch generates better vhdl than "if" */
+			// Test used to exit the action if no parameter has been set.
+			// Used for the discovery phase of the cards */
+#ifndef OCACCEL
+			switch (act_reg->Control.flags) {
+			case 0:
+				Action_Config->action_type = ACTION_TYPE; //TO BE ADAPTED
+				Action_Config->release_level = RELEASE_LEVEL;
+				act_reg->Control.Retc = 0xe00f;
+				return;
+				break;
+			default:
+#endif
+				if (act_reg->Data.mode == MODE_RESET)
+				{
+					//                {
 #pragma HLS PROTOCOL fixed
-                   int i;
-		   eth_reset = 1;
-		   while (i < 32) {
-                      i++; ap_wait();
-                   }
-                   if (i == 32) eth_reset = 0;
-                }
-		if (act_reg->Data.mode != MODE_RESET) {
-			process_action(din_gmem, dout_gmem, d_hbm_p0, d_hbm_p1, d_hbm_p2, d_hbm_p3, d_hbm_p4, d_hbm_p5, d_hbm_p6, d_hbm_p7, d_hbm_p8, d_hbm_p9, d_hbm_p10, d_hbm_p11, din_eth, dout_eth, act_reg);
-		} 
-//S2OC    	break;
-//S2OC    }
-}
+					int i = 0;
+					eth_reset = 1;
+					while (i < 32) {
+						i++; ap_wait();
+					}
+					if (i == 32) eth_reset = 0;
+					//                }
+			} else {
+				process_action(din_gmem, dout_gmem, d_hbm_p0, d_hbm_p1, d_hbm_p2, d_hbm_p3, d_hbm_p4, d_hbm_p5, d_hbm_p6, d_hbm_p7, d_hbm_p8, d_hbm_p9, d_hbm_p10, d_hbm_p11, din_eth, dout_eth, act_reg);
+			}
+#ifndef OCACCEL
+				break;
+			}
+#endif
+		}
 
