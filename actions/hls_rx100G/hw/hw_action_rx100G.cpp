@@ -404,11 +404,11 @@ action_RO_config_reg *Action_Config)
 		{
 			// Host Memory AXI Interface - CANNOT BE REMOVED - NO CHANGE BELOW
 #pragma HLS INTERFACE m_axi port=din_gmem bundle=host_mem offset=slave depth=512 \
-		max_read_burst_length=64  max_write_burst_length=64 latency=16
+		max_read_burst_length=64  max_write_burst_length=64
 #pragma HLS INTERFACE s_axilite port=din_gmem bundle=ctrl_reg offset=0x030
 
 #pragma HLS INTERFACE m_axi port=dout_gmem bundle=host_mem offset=slave depth=512 \
-		max_read_burst_length=64  max_write_burst_length=64 latency=16
+		max_read_burst_length=64  max_write_burst_length=64 latency=140
 #pragma HLS INTERFACE s_axilite port=dout_gmem bundle=ctrl_reg offset=0x040
 
 			/*  // DDR memory Interface - CAN BE COMMENTED IF UNUSED
@@ -428,29 +428,29 @@ action_RO_config_reg *Action_Config)
 #pragma HLS INTERFACE s_axilite port=return bundle=ctrl_reg
 
 #pragma HLS INTERFACE m_axi port=d_hbm_p0 bundle=card_hbm_p0 offset=slave depth=512 \
-		max_read_burst_length=64  max_write_burst_length=64 latency=42
+		max_read_burst_length=64  max_write_burst_length=64 latency=48
 #pragma HLS INTERFACE m_axi port=d_hbm_p1 bundle=card_hbm_p1 offset=slave depth=512 \
-		max_read_burst_length=64  max_write_burst_length=64 latency=42
+		max_read_burst_length=64  max_write_burst_length=64 latency=48
 #pragma HLS INTERFACE m_axi port=d_hbm_p2 bundle=card_hbm_p2 offset=slave depth=512 \
-		max_read_burst_length=64  max_write_burst_length=64 latency=42
+		max_read_burst_length=64  max_write_burst_length=64 latency=48
 #pragma HLS INTERFACE m_axi port=d_hbm_p3 bundle=card_hbm_p3 offset=slave depth=512 \
-		max_read_burst_length=64  max_write_burst_length=64 latency=42
+		max_read_burst_length=64  max_write_burst_length=64 latency=48
 #pragma HLS INTERFACE m_axi port=d_hbm_p4 bundle=card_hbm_p4 offset=slave depth=512 \
-		max_read_burst_length=64  max_write_burst_length=64 latency=42
+		max_read_burst_length=64  max_write_burst_length=64 latency=48
 #pragma HLS INTERFACE m_axi port=d_hbm_p5 bundle=card_hbm_p5 offset=slave depth=512 \
-		max_read_burst_length=64  max_write_burst_length=64 latency=42
+		max_read_burst_length=64  max_write_burst_length=64 latency=48
 #pragma HLS INTERFACE m_axi port=d_hbm_p6 bundle=card_hbm_p6 offset=slave depth=512 \
-		max_read_burst_length=64  max_write_burst_length=64 latency=42
+		max_read_burst_length=64  max_write_burst_length=64 latency=48
 #pragma HLS INTERFACE m_axi port=d_hbm_p7 bundle=card_hbm_p7 offset=slave depth=512 \
-		max_read_burst_length=64  max_write_burst_length=64 latency=42
+		max_read_burst_length=64  max_write_burst_length=64 latency=48
 #pragma HLS INTERFACE m_axi port=d_hbm_p8 bundle=card_hbm_p8 offset=slave depth=512 \
-		max_read_burst_length=64  max_write_burst_length=64 latency=42
+		max_read_burst_length=64  max_write_burst_length=64 latency=48
 #pragma HLS INTERFACE m_axi port=d_hbm_p9 bundle=card_hbm_p9 offset=slave depth=512 \
-		max_read_burst_length=64  max_write_burst_length=64 latency=42
+		max_read_burst_length=64  max_write_burst_length=64 latency=48
 #pragma HLS INTERFACE m_axi port=d_hbm_p10 bundle=card_hbm_p10 offset=slave depth=512 \
-		max_read_burst_length=64  max_write_burst_length=64
+		max_read_burst_length=64  max_write_burst_length=64 latency=32
 #pragma HLS INTERFACE m_axi port=d_hbm_p11 bundle=card_hbm_p11 offset=slave depth=512 \
-		max_read_burst_length=64  max_write_burst_length=64
+		max_read_burst_length=64  max_write_burst_length=64 latency=32
 
 #pragma HLS INTERFACE axis register off port=din_eth
 #pragma HLS INTERFACE axis register off port=dout_eth
@@ -478,7 +478,6 @@ action_RO_config_reg *Action_Config)
 #endif
 				if (act_reg->Data.mode == MODE_RESET)
 				{
-					//                {
 #pragma HLS PROTOCOL fixed
 					int i = 0;
 					eth_reset = 1;
@@ -486,10 +485,12 @@ action_RO_config_reg *Action_Config)
 						i++; ap_wait();
 					}
 					if (i == 32) eth_reset = 0;
-					//                }
-			} else {
-				process_action(din_gmem, dout_gmem, d_hbm_p0, d_hbm_p1, d_hbm_p2, d_hbm_p3, d_hbm_p4, d_hbm_p5, d_hbm_p6, d_hbm_p7, d_hbm_p8, d_hbm_p9, d_hbm_p10, d_hbm_p11, din_eth, dout_eth, act_reg);
-			}
+			} else
+				process_action(din_gmem, dout_gmem, 
+                                               d_hbm_p0, d_hbm_p1, d_hbm_p2, d_hbm_p3, 
+                                               d_hbm_p4, d_hbm_p5, d_hbm_p6, d_hbm_p7, 
+                                               d_hbm_p8, d_hbm_p9, d_hbm_p10,d_hbm_p11, 
+                                               din_eth, dout_eth, act_reg);			
 #ifndef OCACCEL
 				break;
 			}
