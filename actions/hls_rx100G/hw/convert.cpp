@@ -19,7 +19,7 @@
 #define URAM_PARITITION 4
 #define HBM_BURST_G1G2 4
 
-void update_pedestal(ap_uint<512> data_in, ap_uint<18*32> &data_out, packed_pedeG0_t &packed_pede, ap_uint<1> accumulate, ap_uint<8> mode, ap_uint<32> mask) {
+void update_pedestal(ap_uint<512> data_in, ap_uint<18*32> &data_out, packed_pedeG0_t &packed_pede, ap_uint<1> accumulate, ap_uint<8> mode, ap_uint<32> &mask) {
 #pragma HLS PIPELINE II=1
 #pragma HLS INLINE off
 	// Load current pedestal
