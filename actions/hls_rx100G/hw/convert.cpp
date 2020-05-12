@@ -24,6 +24,7 @@ void update_pedestal(ap_uint<512> data_in, ap_uint<18*32> &data_out, packed_pede
 #pragma HLS INLINE off
 	// Load current pedestal
 	pedeG0_t pedestal[32];
+        ap_uint<32> tmp_mask = 0;
 	unpack_pedeG0(packed_pede, pedestal);
 	for (int j = 0; j < 32; j++) {
 		ap_uint<2> gain = data_in(16 * j + 15,16 * j + 14);
@@ -43,8 +44,8 @@ void update_pedestal(ap_uint<512> data_in, ap_uint<18*32> &data_out, packed_pede
                 if (((gain != 0x0) && (mode == MODE_PEDEG0)) ||
                     ((gain != 0x1) && (mode == MODE_PEDEG1)) ||
                     ((gain != 0x3) && (mode == MODE_PEDEG2))) {
-                        mask[j] = 1;       
-                }
+                        tmp_mask[j] = 1;       
+                } else tmp_mask[j] = 0;
 		// Calculate G0 pedestal correction - anyway - it will be overwritten on next steps
 
 		for (int k = 0; k < 18; k++)
@@ -53,6 +54,9 @@ void update_pedestal(ap_uint<512> data_in, ap_uint<18*32> &data_out, packed_pede
 	}
 	// Save pedestal
 	pack_pedeG0(packed_pede, pedestal);
+
+        // Save mask
+        mask |= tmp_mask;
 }
 
 
