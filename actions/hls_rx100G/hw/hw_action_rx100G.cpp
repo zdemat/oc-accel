@@ -361,15 +361,15 @@ static int process_action(rx100g_mem_t *din_gmem,
 	case MODE_PEDEG0:
 	case MODE_CONV:
 		save_pedestal(dout_gmem, in_gain_pedestal_addr + 5 * NPIXEL * 2L / 64);
-		update_pixel_mask(din_gmem, in_gain_pedestal_addr + 6 * NPIXEL * 2L / 64, 9);
+		update_pixel_mask(din_gmem, in_gain_pedestal_addr + 6 * NPIXEL * 2L / 64, 1);
 		break;
 	case MODE_PEDEG1:
 		save_pedestal(dout_gmem, in_gain_pedestal_addr + 3 * NPIXEL * 2L / 64);
-		update_pixel_mask(din_gmem, in_gain_pedestal_addr + 6 * NPIXEL * 2L / 64, 10);
+		update_pixel_mask(din_gmem, in_gain_pedestal_addr + 6 * NPIXEL * 2L / 64, 2);
 		break;
 	case MODE_PEDEG2:
 		save_pedestal(dout_gmem, in_gain_pedestal_addr + 4 * NPIXEL * 2L / 64);
-		update_pixel_mask(din_gmem, in_gain_pedestal_addr + 6 * NPIXEL * 2L / 64, 11);
+		update_pixel_mask(din_gmem, in_gain_pedestal_addr + 6 * NPIXEL * 2L / 64, 3);
 		break;
 	}
 
@@ -408,7 +408,7 @@ action_RO_config_reg *Action_Config)
 #pragma HLS INTERFACE s_axilite port=din_gmem bundle=ctrl_reg offset=0x030
 
 #pragma HLS INTERFACE m_axi port=dout_gmem bundle=host_mem offset=slave depth=512 \
-		max_read_burst_length=64  max_write_burst_length=64 latency=140
+		max_read_burst_length=64  max_write_burst_length=64 latency=200
 #pragma HLS INTERFACE s_axilite port=dout_gmem bundle=ctrl_reg offset=0x040
 
 			/*  // DDR memory Interface - CAN BE COMMENTED IF UNUSED
@@ -428,29 +428,29 @@ action_RO_config_reg *Action_Config)
 #pragma HLS INTERFACE s_axilite port=return bundle=ctrl_reg
 
 #pragma HLS INTERFACE m_axi port=d_hbm_p0 bundle=card_hbm_p0 offset=slave depth=512 \
-		max_read_burst_length=64  max_write_burst_length=64 latency=48
+		max_read_burst_length=64  max_write_burst_length=64 latency=64
 #pragma HLS INTERFACE m_axi port=d_hbm_p1 bundle=card_hbm_p1 offset=slave depth=512 \
-		max_read_burst_length=64  max_write_burst_length=64 latency=48
+		max_read_burst_length=64  max_write_burst_length=64 latency=64
 #pragma HLS INTERFACE m_axi port=d_hbm_p2 bundle=card_hbm_p2 offset=slave depth=512 \
-		max_read_burst_length=64  max_write_burst_length=64 latency=48
+		max_read_burst_length=64  max_write_burst_length=64 latency=64
 #pragma HLS INTERFACE m_axi port=d_hbm_p3 bundle=card_hbm_p3 offset=slave depth=512 \
-		max_read_burst_length=64  max_write_burst_length=64 latency=48
+		max_read_burst_length=64  max_write_burst_length=64 latency=64
 #pragma HLS INTERFACE m_axi port=d_hbm_p4 bundle=card_hbm_p4 offset=slave depth=512 \
-		max_read_burst_length=64  max_write_burst_length=64 latency=48
+		max_read_burst_length=64  max_write_burst_length=64 latency=64
 #pragma HLS INTERFACE m_axi port=d_hbm_p5 bundle=card_hbm_p5 offset=slave depth=512 \
-		max_read_burst_length=64  max_write_burst_length=64 latency=48
+		max_read_burst_length=64  max_write_burst_length=64 latency=64
 #pragma HLS INTERFACE m_axi port=d_hbm_p6 bundle=card_hbm_p6 offset=slave depth=512 \
-		max_read_burst_length=64  max_write_burst_length=64 latency=48
+		max_read_burst_length=64  max_write_burst_length=64 latency=64
 #pragma HLS INTERFACE m_axi port=d_hbm_p7 bundle=card_hbm_p7 offset=slave depth=512 \
-		max_read_burst_length=64  max_write_burst_length=64 latency=48
+		max_read_burst_length=64  max_write_burst_length=64 latency=64
 #pragma HLS INTERFACE m_axi port=d_hbm_p8 bundle=card_hbm_p8 offset=slave depth=512 \
-		max_read_burst_length=64  max_write_burst_length=64 latency=48
+		max_read_burst_length=64  max_write_burst_length=64 latency=64
 #pragma HLS INTERFACE m_axi port=d_hbm_p9 bundle=card_hbm_p9 offset=slave depth=512 \
-		max_read_burst_length=64  max_write_burst_length=64 latency=48
+		max_read_burst_length=64  max_write_burst_length=64 latency=64
 #pragma HLS INTERFACE m_axi port=d_hbm_p10 bundle=card_hbm_p10 offset=slave depth=512 \
-		max_read_burst_length=64  max_write_burst_length=64 latency=32
+		max_read_burst_length=64  max_write_burst_length=64 latency=48
 #pragma HLS INTERFACE m_axi port=d_hbm_p11 bundle=card_hbm_p11 offset=slave depth=512 \
-		max_read_burst_length=64  max_write_burst_length=64 latency=32
+		max_read_burst_length=64  max_write_burst_length=64 latency=48
 
 #pragma HLS INTERFACE axis register off port=din_eth
 #pragma HLS INTERFACE axis register off port=dout_eth
