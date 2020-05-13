@@ -122,9 +122,9 @@ void convert_and_shuffle(ap_uint<512> data_in, ap_uint<512> &data_out,
 
 	Convert: for (int i = 0; i < 32; i++) {
 
-		if (in_val[i] == 0x3fff) out_val[i] = 32766; // can saturate G2 - overload
+		if (in_val[i] == 0xc000) out_val[i] = 32766; // can saturate G2 - overload
 		else if (in_val[i] == 0xffff) out_val[i] = -32763; //error
-		else if (in_val[i] == 0xc000) out_val[i] = -32764; //cannot saturate G1 - error
+		else if (in_val[i] == 0x4000) out_val[i] = -32764; //cannot saturate G1 - error
 		else {
 
 			ap_fixed<18,16, AP_RND_CONV> val_diff;
