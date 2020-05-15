@@ -1,3 +1,6 @@
 [submodule "hardware/oc-bip"]
 	path = hardware/oc-bip
 	url = https://github.com/bmesnet/OpenCAPI3.0_Client_RefDesign.git
+[submodule "actions/hls_rx100G/JFSLSMX_receiver"]
+	path = actions/hls_rx100G/JFSLSMX_receiver
+	url = https://github.com/fleon-psi/JFSLSMX_receiver
