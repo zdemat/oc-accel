@@ -31,7 +31,6 @@
 
 #define PEDE_G0_PRECISION 24
 #define PEDESTAL_WINDOW_SIZE 128
-#define DELAY_FRAMES_STOP_AND_QUIT 5
 
 //--------------------------------------------------------------------
 // 1: simplify the data casting style
