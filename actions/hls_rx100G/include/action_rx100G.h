@@ -86,8 +86,9 @@ typedef struct rx100G_job {
     uint64_t fpga_mac_addr;
     uint32_t fpga_ipv4_addr;
     uint32_t mode;
-    uint32_t expected_triggers; // 0 = don't wait for trigger
     uint32_t frames_per_trigger;
+    uint16_t expected_triggers; // 0 = don't wait for trigger
+    uint16_t delay_per_trigger;
 } rx100G_job_t;
 
 #ifdef __cplusplus
