@@ -43,7 +43,7 @@
 #define MODE_PEDEG2         4
 #define MODE_RESET          5
 #define MODE_CONV_BSHUF     6
-#defone MODE_QUIT         255
+#define MODE_QUIT         255
 
 #define DELAY_FRAMES_STOP_AND_QUIT 5
 
