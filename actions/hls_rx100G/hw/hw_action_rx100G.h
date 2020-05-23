@@ -79,6 +79,8 @@ struct data_packet_t {
 	ap_uint<8> eth_packet; // 0..128
 	ap_uint<8> axis_packet; // 0..128
 	ap_uint<1> axis_user; // TUSER from AXIS
+        ap_uint<1> pedestal; // Contributes to pedestal G0? (only for MODE = MODE_CONV)
+        ap_uint<1> save;     // Contributes to pedestal G0? (only for MODE = MODE_CONV)
 	ap_uint<1> exit; // exit
 	ap_uint<1> trigger; // debug flag on
 };
@@ -92,6 +94,10 @@ struct eth_settings_t {
 	uint64_t fpga_mac_addr;
 	uint32_t fpga_ipv4_addr;
 	uint32_t fpga_udp_port;
+        uint8_t expected_triggers; 
+        ap_uint<24> frames_per_trigger;
+        ap_uint<24> pedestalG0_frames;
+        uint16_t delay_per_trigger;
 };
 
 struct conversion_settings_t {
@@ -169,7 +175,8 @@ void apply_gain_correction(DATA_STREAM &in, DATA_STREAM &out,
 		rx100g_hbm_t *d_hbm_p8, rx100g_hbm_t *d_hbm_p9,
 		ap_uint<2> output_mode);
 
-void check_for_trigger(DATA_STREAM &in, DATA_STREAM &out, uint8_t expected_triggers, ap_uint<24> frames_per_trigger);
+void check_for_trigger(DATA_STREAM &in, DATA_STREAM &out, uint8_t expected_triggers, ap_uint<24> frames_per_trigger,
+                       uint16_t delay_per_trigger);
 
 void write_data(DATA_STREAM &in, rx100g_mem_t *dout_gmem,
 		size_t out_frame_buffer_addr, size_t out_frame_status_addr, rx100g_hbm_t *d_hbm_stat);

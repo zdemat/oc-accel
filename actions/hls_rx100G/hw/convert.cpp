@@ -69,7 +69,7 @@ void pedestalG0(DATA_STREAM &in, DATA_STREAM &out, conversion_settings_t convers
 
 			ap_uint<8> mode = conversion_settings.conversion_mode;
 			ap_uint<28> frame_number = packet_in.frame_number;
-			if ((mode == MODE_CONV) && (frame_number < conversion_settings.pedestalG0_frames)) mode = MODE_PEDEG0;
+			if ((mode == MODE_CONV) && (packet_in.pedestal == 1)) mode = MODE_PEDEG0;
 
 			ap_uint<1> accumulate_pede;
 			if (frame_number < PEDESTAL_WINDOW_SIZE) accumulate_pede = 1;
@@ -81,8 +81,8 @@ void pedestalG0(DATA_STREAM &in, DATA_STREAM &out, conversion_settings_t convers
 				packet_out = packet_in;
 
 				update_pedestal(packet_in.data, packet_out.conv_data,packed_pedeG0[offset+i], accumulate_pede, mode, pixel_mask[offset+i]);
-				// Send packet out
-				out << packet_out;
+				// Send packet out (if it is going to be saved)
+                                if (packet_in.save) out << packet_out;
 				in >> packet_in;
 			}
 		}

@@ -214,33 +214,19 @@ void collect_data(AXI_STREAM &din_eth,
 		rx100g_hbm_t *d_hbm_p6, rx100g_hbm_t *d_hbm_p7,
 		rx100g_hbm_t *d_hbm_p8, rx100g_hbm_t *d_hbm_p9,
 		rx100g_hbm_t *d_hbm_p10, rx100g_hbm_t *d_hbm_p11,
-		conversion_settings_t conversion_settings, ap_uint<2> select_output,
-		uint8_t expected_triggers, ap_uint<24> frames_per_trigger) {
+		conversion_settings_t conversion_settings, ap_uint<2> select_output) {
 
 #pragma HLS DATAFLOW
-	DATA_STREAM raw;
-	DATA_STREAM after_pedeG0;
-	DATA_STREAM after_gainG0;
-	DATA_STREAM after_correctG1;
-	DATA_STREAM after_correctG2;
-	DATA_STREAM converted;
-	DATA_STREAM filtered;
 
+	DATA_STREAM raw;
 #pragma HLS STREAM variable=raw
 #pragma HLS RESOURCE variable=raw CORE=FIFO_LUTRAM
+
+	DATA_STREAM after_pedeG0;
 #pragma HLS STREAM variable=after_pedeG0 depth=512
-	//#pragma HLS RESOURCE variable=after_pedeG0 CORE=FIFO_LUTRAM
-	//#pragma HLS STREAM variable=after_gainG0 depth=4
-	//#pragma HLS RESOURCE variable=after_gainG0 CORE=FIFO_LUTRAM
 
-	//#pragma HLS RESOURCE variable=after_correctG1 CORE=FIFO_BRAM
-	//#pragma HLS STREAM variable=after_correctG2 depth=4
-	//#pragma HLS RESOURCE variable=after_correctG2 CORE=FIFO_LUTRAM
-#pragma HLS STREAM variable=filtered
-#pragma HLS RESOURCE variable=filtered CORE=FIFO_LUTRAM
-
+	DATA_STREAM converted;
 #pragma HLS STREAM variable=converted depth=512
-	//#pragma HLS RESOURCE variable=converted CORE=FIFO_BRAM
 
 	// 1. Read packet from 100G Ethernet
 	read_eth_packet(din_eth, raw, eth_settings, d_hbm_p10);
@@ -257,11 +243,8 @@ void collect_data(AXI_STREAM &din_eth,
 			d_hbm_p8, d_hbm_p9,
 			select_output);
 
-	// 4. Filter frames with trigger signal information
-	check_for_trigger(converted, filtered, expected_triggers, frames_per_trigger);
-
-	// 5. Write raw or converted data to host memory
-	write_data(filtered, dout_gmem, out_frame_buffer_addr, out_frame_status_addr, d_hbm_p11);
+	// 4. Write raw or converted data to host memory
+	write_data(converted, dout_gmem, out_frame_buffer_addr, out_frame_status_addr, d_hbm_p11);
 }
 
 //----------------------------------------------------------------------
@@ -304,9 +287,12 @@ static int process_action(rx100g_mem_t *din_gmem,
 	eth_settings.frame_number_to_stop = act_reg->Data.expected_frames;
 	eth_settings.frame_number_to_quit = act_reg->Data.expected_frames + DELAY_FRAMES_STOP_AND_QUIT;
 	eth_settings.first_frame_number = act_reg->Data.first_frame_number;
+        eth_settings.pedestalG0_frames = act_reg->Data.pedestalG0_frames;
+        eth_settings.expected_triggers = act_reg->Data.expected_triggers;
+        eth_settings.frames_per_trigger = act_reg->Data.frames_per_trigger;
+        eth_settings.delay_per_trigger = act_reg->Data.delay_per_trigger;
 
 	conversion_settings_t conversion_settings;
-	conversion_settings.pedestalG0_frames = act_reg->Data.pedestalG0_frames;
 
 	if (act_reg->Data.mode == MODE_CONV_BSHUF) conversion_settings.conversion_mode = MODE_CONV;
 	else conversion_settings.conversion_mode = act_reg->Data.mode;
@@ -352,9 +338,7 @@ static int process_action(rx100g_mem_t *din_gmem,
 			d_hbm_p6, d_hbm_p7,
 			d_hbm_p8, d_hbm_p9,
 			d_hbm_p10, d_hbm_p11,
-			conversion_settings, output_type,
-			act_reg->Data.expected_triggers,
-			act_reg->Data.frames_per_trigger);
+			conversion_settings, output_type);
 
 	// Save calculated pedestal back to memory
 	switch (conversion_settings.conversion_mode) {
