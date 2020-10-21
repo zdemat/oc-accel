@@ -150,7 +150,7 @@ void make_packet(AXI_STREAM &din_eth, uint64_t frame_number, uint32_t eth_packet
 	packet->dest_mac[5] = 0xF1;
 	packet->ipv4_header_h = 0x45; // Big endian in IP header!
     packet->ipv4_header_total_length = 0x4C20; // Big endian in IP header!
-	packet->ipv4_header_dest_ip = 0x0532010A; // Big endian in IP header!
+	packet->ipv4_header_dest_ip = 0xCA0112AC; // Big endian in IP header! AC1201CA 172.18.1.202
 
 	if (eth_packet > 63)
 		packet->ipv4_header_sour_ip = 0x0632010A;

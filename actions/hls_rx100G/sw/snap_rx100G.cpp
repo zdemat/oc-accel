@@ -95,7 +95,7 @@ int main()
 	mjob.pedestalG0_frames = 0;
 	mjob.mode = MODE_RAW;
 	mjob.fpga_mac_addr = 0xAABBCCDDEEF1;   // AA:BB:CC:DD:EE:F1
-	mjob.fpga_ipv4_addr = 0x0A013205;      // 10.1.50.5
+	mjob.fpga_ipv4_addr = 0xAC1201CA;      // 172.18.1.202
 
 	mjob.in_gain_pedestal_data_addr = (uint64_t) in_parameters_array;
 	mjob.out_frame_buffer_addr = (uint64_t) out_data_buffer;
