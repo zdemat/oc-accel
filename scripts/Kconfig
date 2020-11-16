@@ -158,11 +158,12 @@ choice
 		  - Writing back the text to the server memory
 		  This example is written in C and compiled with HLS
 		select ENABLE_HLS_SUPPORT
-		select DISABLE_SDRAM_AND_BRAM
+		select ENABLE_ETHERNET
+		select ENABLE_SIMU_WO_ETH
+		select FORCE_SDRAM_AND_BRAM
 		select DISABLE_NVME
 		select DISABLE_HBM
 		select ACTION_HALF_WIDTH
-		select DISABLE_ETHERNET
 
 	config HLS_MEMCOPY_1024
 		bool "HLS Memcopy 1024b"
